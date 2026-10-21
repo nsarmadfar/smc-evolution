@@ -1,0 +1,11 @@
+# downloaded and simulated input data (re-created by the pipeline)
+data/raw/
+data/test/
+
+# intermediate files
+results/work/
+results/test/
+*.dmnd
+
+__pycache__/
+.DS_Store

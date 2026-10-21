@@ -1,0 +1,15 @@
+name: smc-evolution
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.11
+  - mafft=7.525
+  - trimal=1.5
+  - iqtree=2.4
+  - diamond=2.1
+  - biopython
+  - pandas
+  - numpy
+  - matplotlib
+  - requests

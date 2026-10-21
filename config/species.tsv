@@ -1,0 +1,19 @@
+code	species	taxon_id	supergroup	role
+Hsap	Homo sapiens	9606	Opisthokonta	ingroup
+Scer	Saccharomyces cerevisiae	4932	Opisthokonta	ingroup
+Mbre	Monosiga brevicollis	81824	Opisthokonta	ingroup
+Ddis	Dictyostelium discoideum	44689	Amoebozoa	ingroup
+Atha	Arabidopsis thaliana	3702	Archaeplastida	ingroup
+Crei	Chlamydomonas reinhardtii	3055	Archaeplastida	ingroup
+Pinf	Phytophthora infestans	4787	SAR (Stramenopiles)	ingroup
+Tpse	Thalassiosira pseudonana	35128	SAR (Stramenopiles)	ingroup
+Pfal	Plasmodium falciparum	5833	SAR (Alveolata)	ingroup
+Tthe	Tetrahymena thermophila	5911	SAR (Alveolata)	ingroup
+Tbru	Trypanosoma brucei	5691	Discoba	ingroup
+Ngru	Naegleria gruberi	5762	Discoba	ingroup
+Gint	Giardia intestinalis	5741	Metamonada	ingroup
+Tvag	Trichomonas vaginalis	5722	Metamonada	ingroup
+Bsub	Bacillus subtilis 168	224308	Bacteria	outgroup
+Tmar	Thermotoga maritima	243274	Bacteria	outgroup
+Pfur	Pyrococcus furiosus	186497	Archaea	outgroup
+Mjan	Methanocaldococcus jannaschii	243232	Archaea	outgroup

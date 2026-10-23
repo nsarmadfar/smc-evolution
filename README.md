@@ -24,11 +24,13 @@ Bacteria and archaea have a single SMC protein (or a distant relative such as Mu
 ```
 UniProt reference proteomes (14 eukaryotes, 6 supergroups)
    ▼
-Similarity search: DIAMOND blastp against human and yeast SMC1-6 and RAD50
-   │  hits must align to the N-terminal ATPase head
+Similarity search: DIAMOND blastp (ultra-sensitive) against human and
+   │  yeast SMC1-6 and RAD50; hits must cover the N- or C-terminal part
+   │  of the ATPase head
    ▼
 Labelling: best-hit family; ambiguous, fragment (< 700 aa) and
-   │  redundant (>= 95% identical isoforms) sequences removed
+   │  redundant sequences removed (one record per gene,
+   │  then >= 95% identical records collapsed)
    ▼
 Alignment (MAFFT) → trimming (trimAl -automated1)
    ▼
@@ -42,7 +44,7 @@ The species are listed in [`config/species.tsv`](config/species.tsv). They inclu
 
 ### Testing on simulated data first
 
-Before using real data, I test the pipeline on simulated sequences where the true answer is known (`scripts/simulate_test_data.py`). An ancestral sequence evolves along a known history: six families arise by duplication before the species split, then each evolves along the same species tree. I added a simulated gene loss (SMC5 and SMC6 in *Giardia*), a duplication (SMC1 in *Tetrahymena*), a fragment, 200 unrelated background proteins per species, and a "coiled-coil" decoy that shares only the middle of an SMC protein. The pipeline passes when it finds and labels every SMC protein correctly, ignores the decoys, recovers all six families as clades, and finds the loss and the duplication.
+Before using real data, I test the pipeline on simulated sequences where the true answer is known (`scripts/simulate_test_data.py`). An ancestral sequence evolves along a known history: six families arise by duplication before the species split, then each evolves along the same species tree. I added a simulated gene loss (SMC5 and SMC6 in *Giardia*), a duplication (SMC1 in *Tetrahymena*), a fragment, an N-terminally truncated gene model, extra isoforms of one gene, 200 unrelated background proteins per species, and a "coiled-coil" decoy that shares only the middle of an SMC protein. The pipeline passes when it finds and labels every SMC protein correctly, ignores the decoys, recovers all six families as clades, and finds the truncated protein, removes the isoforms, and finds the loss and the duplication.
 
 ## How to run
 

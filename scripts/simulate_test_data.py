@@ -7,7 +7,11 @@ An ancestral SMC sequence evolves along a known history:
   each family then evolves along the same species tree.
 RAD50 and unrelated proteins are added as decoys. To test the pipeline, one
 species loses SMC5 and SMC6, one species gains an extra SMC1 copy, and one
-SMC4 is a short fragment.
+SMC4 is a short fragment. One SMC4 lacks its first 250 residues (an
+N-terminally truncated gene model, common in draft genomes), which should
+still be found through the C-terminal half of its ATPase head. Human SMC5
+gets three extra isoforms with the same gene name, which should be removed
+as redundant. Every protein gets a gene name (locus tag), as in UniProt.
 
 Each species also gets 200 unrelated proteins, and one species gets a
 "coiled-coil" decoy that shares only the middle of SMC1 (no ATPase head),
@@ -97,10 +101,12 @@ def main(species_file, outdir, seed=1):
     outgroups, truth, refs = [], [], []
     n = 0
 
-    def add(code, seq, fam, role="ingroup", gene=""):
+    def add(code, seq, fam, role="ingroup", gene=None, expected=None):
         nonlocal n
         n += 1
         acc = f"SIM{n:05d}"
+        if gene is None:
+            gene = f"{code.upper()}_{n:05d}"            # locus tag
         sp = species.loc[code]
         if role == "ingroup":
             header = (f"tr|{acc}|{acc}_{code.upper()} simulated protein "
@@ -113,7 +119,8 @@ def main(species_file, outdir, seed=1):
                               "Organism (ID)": sp.taxon_id, "Organism": sp.species,
                               "Length": len(seq), "Sequence": to_str(seq),
                               "code": code})
-        truth.append({"Entry": acc, "code": code, "true_family": fam})
+        truth.append({"Entry": acc, "code": code, "true_family": fam,
+                      "expected": expected or fam})
         return acc
 
     for fam, anc in families.items():
@@ -122,9 +129,18 @@ def main(species_file, outdir, seed=1):
         for code, seq in leaves.items():
             if code == "Gint" and fam in ("SMC5", "SMC6"):
                 continue                                   # simulated loss
+            expected = None
             if code == "Pfal" and fam == "SMC4":
-                seq = seq[:400]                            # simulated fragment
-            add(code, seq, fam)
+                seq, expected = seq[:400], "fragment"      # simulated fragment
+            if code == "Mbre" and fam == "SMC4":
+                seq = seq[250:]                            # N-terminal truncation
+            gene = fam if code in ("Hsap", "Scer") else None
+            add(code, seq, fam, gene=gene, expected=expected)
+            if code == "Hsap" and fam == "SMC5":           # isoforms, same gene
+                for iso in (seq[:1040],
+                            np.concatenate([seq[:500], seq[540:]]),
+                            seq[30:]):
+                    add(code, iso, fam, gene="SMC5", expected="redundant")
             if code == "Tthe" and fam == "SMC1":
                 add(code, evolve(seq, 0.15), fam)          # simulated duplication
             if code in ("Hsap", "Scer"):

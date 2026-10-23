@@ -2,15 +2,19 @@
 """Find SMC proteins in each proteome by sequence similarity and label them.
 
 1. Search: every protein of every proteome is compared with the human and
-   yeast reference SMC1-6 and RAD50 proteins (DIAMOND blastp). A protein is
-   a candidate when it aligns to the N-terminal ATPase head of a reference
-   (alignment starting within the first HEAD_WINDOW residues). This keeps
-   true SMC-like proteins and drops proteins that only share coiled coils.
+   yeast reference SMC1-6 and RAD50 proteins (DIAMOND blastp,
+   --ultra-sensitive). The SMC ATPase head is built from both ends of the
+   protein (N-terminal Walker A, C-terminal Walker B), so a protein is a
+   candidate when its alignment covers the first or the last HEAD_WINDOW
+   residues of a reference. This keeps divergent and N-terminally truncated
+   SMC proteins, and drops proteins that only share the coiled coils.
 2. Label: each candidate gets the family of its best hit. It is
    'ambiguous' when the best and second-best families score too similarly,
    and 'fragment' when shorter than min_length.
-3. Redundancy: within a species, a sequence >= 95% identical over >= 90% of
-   its length to a longer one is 'redundant' (isoforms, duplicate records).
+3. Redundancy: UniProt often holds several records per gene (isoforms,
+   duplicate submissions). Within a species, (a) only the longest record per
+   gene name and family is kept, and (b) a record >= 95% identical over
+   >= 90% of its length to a longer kept record is also 'redundant'.
 
 Outputs (in OUTDIR):
   classification.tsv  one row per candidate with its label and scores
@@ -29,7 +33,8 @@ import pandas as pd
 MIN_RATIO = 1.15     # best family bitscore / second-best family bitscore
 HEAD_WINDOW = 200    # hit must start within this many residues of the reference
 TREE_FAMILIES = ["SMC1", "SMC2", "SMC3", "SMC4", "SMC5", "SMC6"]
-COLS = ["query", "subject", "pident", "aln_len", "sstart", "evalue", "bitscore"]
+COLS = ["query", "subject", "pident", "aln_len", "sstart", "send", "slen",
+        "evalue", "bitscore"]
 
 
 def write_fasta(records, path):
@@ -64,15 +69,15 @@ def parse_header(header):
     return acc, entry, gene.group(1) if gene else ""
 
 
-def run_diamond(query, refs, out, threads):
+def run_diamond(query, refs, out, threads, mode="--more-sensitive"):
     db = out.with_suffix("")
     subprocess.run(["diamond", "makedb", "--quiet", "--in", str(refs),
                     "-d", str(db)], check=True)
-    subprocess.run(["diamond", "blastp", "--quiet", "--more-sensitive",
+    subprocess.run(["diamond", "blastp", "--quiet", mode,
                     "-q", str(query), "-d", str(db), "-o", str(out),
                     "-k", "50", "-e", "1e-5", "-p", str(threads),
                     "--outfmt", "6", "qseqid", "sseqid", "pident", "length",
-                    "sstart", "evalue", "bitscore"], check=True)
+                    "sstart", "send", "slen", "evalue", "bitscore"], check=True)
     return pd.read_csv(out, sep="\t", names=COLS)
 
 
@@ -106,9 +111,11 @@ def main(rawdir, species_file, outdir, min_length=700, threads=4):
     print(f"Searching {len(proteins)} proteins from "
           f"{proteins['code'].nunique()} proteomes")
     hits = run_diamond(work / "proteomes.faa", work / "references.faa",
-                       work / "diamond_hits.tsv", threads)
+                       work / "diamond_hits.tsv", threads, "--ultra-sensitive")
     hits["family"] = hits["subject"].str.split("|").str[0]
-    head_hits = set(hits.loc[hits["sstart"] <= HEAD_WINDOW, "query"])
+    in_head = ((hits["sstart"] <= HEAD_WINDOW) |
+               (hits["send"] >= hits["slen"] - HEAD_WINDOW))
+    head_hits = set(hits.loc[in_head, "query"])
     hits = hits[hits["query"].isin(head_hits)]
 
     # 2. Label by best family
@@ -135,6 +142,14 @@ def main(rawdir, species_file, outdir, min_length=700, threads=4):
     table["label"] = table.apply(label, axis=1)
 
     # 3. Redundant entries within a species
+    # (a) one record per gene: keep the longest per species, gene and family
+    table = table.sort_values(["Length", "name"], ascending=[False, True])
+    named = table["Gene Names (primary)"].fillna("").astype(str) != ""
+    dup_gene = table[named].duplicated(
+        subset=["code", "Gene Names (primary)", "best_family"], keep="first")
+    table.loc[dup_gene[dup_gene].index, "label"] = "redundant"
+
+    # (b) near-identical records: greedy clustering, longest first
     write_fasta(zip(table["name"], table["Sequence"]), work / "candidates.faa")
     self_hits = run_diamond(work / "candidates.faa", work / "candidates.faa",
                             work / "self_hits.tsv", threads)
@@ -143,14 +158,19 @@ def main(rawdir, species_file, outdir, min_length=700, threads=4):
                           (self_hits["pident"] >= 95) &
                           (self_hits["query"].str.split("_").str[0] ==
                            self_hits["subject"].str.split("_").str[0])]
-    redundant = set()
-    for r in self_hits.sort_values("bitscore", ascending=False).itertuples():
-        lq, ls = lengths[r.query], lengths[r.subject]
-        shorter, longer = ((r.query, r.subject) if (lq, r.query) < (ls, r.subject)
-                           else (r.subject, r.query))
-        if r.aln_len >= 0.9 * min(lq, ls) and longer not in redundant:
-            redundant.add(shorter)
-    table.loc[table["name"].isin(redundant), "label"] = "redundant"
+    partners = {}
+    for r in self_hits.itertuples():
+        if r.aln_len >= 0.9 * min(lengths[r.query], lengths[r.subject]):
+            partners.setdefault(r.query, set()).add(r.subject)
+            partners.setdefault(r.subject, set()).add(r.query)
+    kept = set()
+    for name, lab in zip(table["name"], table["label"]):
+        if lab == "redundant":
+            continue
+        if partners.get(name, set()) & kept:
+            table.loc[table["name"] == name, "label"] = "redundant"
+        else:
+            kept.add(name)
 
     keep_cols = ["code", "Entry", "Entry Name", "Gene Names (primary)",
                  "Organism", "Length", "best_family", "best_bitscore",

@@ -20,14 +20,18 @@ def main(datadir, resultdir):
         calls, on=["Entry", "code"], how="left")
     found_other = truth[truth["true_family"] == "other"].merge(
         calls, on=["Entry", "code"])
-    fragment = (m["code"] == "Pfal") & (m["true_family"] == "SMC4")
-    expected = m["true_family"].where(~fragment, "fragment")
-    wrong = m[expected != m["label"]]
+    fragment = m["expected"] == "fragment"
+    wrong = m[m["expected"] != m["label"]]
 
     checks = {
         "every SMC found and labelled correctly": wrong.empty,
         "no unrelated or coiled-coil-only proteins picked up": found_other.empty,
         "fragment removed (Pfal SMC4)": (m.loc[fragment, "label"] == "fragment").all(),
+        "truncated gene model found (Mbre SMC4)":
+            (m.loc[(m["code"] == "Mbre") & (m["true_family"] == "SMC4"),
+                   "label"] == "SMC4").all(),
+        "isoforms removed (Hsap SMC5 = 1)":
+            int(counts.filter(like="Homo", axis=0)["SMC5"].iloc[0]) == 1,
         "all six SMC families monophyletic": bool(mono["monophyletic"].all())
                                               and len(mono) == 6,
         "loss detected (Gint SMC5, SMC6 = 0)":
@@ -38,7 +42,7 @@ def main(datadir, resultdir):
     for name, ok in checks.items():
         print(f"[{'PASS' if ok else 'FAIL'}] {name}")
     if not wrong.empty:
-        print(wrong[["Entry", "code", "true_family", "label", "ratio"]])
+        print(wrong[["Entry", "code", "true_family", "expected", "label", "ratio"]])
     if not all(checks.values()):
         sys.exit(1)
     print("\nAll checks passed.")

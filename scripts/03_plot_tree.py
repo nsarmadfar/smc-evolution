@@ -39,25 +39,46 @@ def main(treefile, species_file, outdir):
         tree.root_with_outgroup(tree.common_ancestor(outgroup))
     tree.ladderize()
 
-    # Monophyly test: is the smallest clade holding all members of a family
-    # made of that family only?
+    # Monophyly test. For each family, find its "core clade": the largest
+    # clade made only of that family. The family is monophyletic when the
+    # core clade holds all its members. Members outside it are listed: they
+    # are either misclassified or genuinely odd sequences worth a closer look.
     rows = []
+    core_clades = {}
     for fam in sorted({family(t.name) for t in tips} - {"prokSMC"}):
-        members = [t for t in tips if family(t.name) == fam]
-        clade = tree.common_ancestor(members) if len(members) > 1 else members[0]
-        inside = [t.name for t in clade.get_terminals()]
-        intruders = [n for n in inside if family(n) != fam]
+        members = [t.name for t in tips if family(t.name) == fam]
+        core = None
+        for c in tree.find_clades():
+            names = [t.name for t in c.get_terminals()]
+            if all(family(n) == fam for n in names):
+                if core is None or len(names) > len(core.get_terminals()):
+                    core = c
+        core_clades[fam] = core
+        core_names = {t.name for t in core.get_terminals()}
+        outside = [m for m in members if m not in core_names]
+        # nearest family of each outside member = family of its sister tips
+        placed = []
+        for m in outside:
+            path = tree.get_path(m)
+            parent = path[-2] if len(path) > 1 else tree.root
+            sisters = [family(t.name) for t in parent.get_terminals()
+                       if t.name != m]
+            near = max(set(sisters), key=sisters.count) if sisters else "?"
+            placed.append(f"{m} (sits with {near})")
         rows.append({
             "family": fam, "complex": COMPLEX.get(fam, ""),
             "n_sequences": len(members),
-            "n_species": len({m.name.split("_")[1] for m in members}),
-            "monophyletic": not intruders,
-            "ufboot_support": clade.confidence if len(members) > 1 else None,
-            "intruding_tips": ";".join(intruders),
+            "n_species": len({m.split("_")[1] for m in members}),
+            "in_core_clade": len(core_names),
+            "monophyletic": not outside,
+            "ufboot_support": core.confidence if len(core_names) > 1 else None,
+            "outside_core": ";".join(placed),
         })
     mono = pd.DataFrame(rows)
     mono.to_csv(outdir / "family_monophyly.tsv", sep="\t", index=False)
-    print(mono.drop(columns="intruding_tips").to_string(index=False))
+    print(mono.drop(columns="outside_core").to_string(index=False))
+    for r in mono[mono["outside_core"] != ""].itertuples():
+        print(f"  {r.family} outside core clade: {r.outside_core}")
 
     # Draw
     def label(clade):
@@ -69,11 +90,7 @@ def main(treefile, species_file, outdir):
 
     label_colour = {label(t): COLOURS.get(family(t.name), "black") for t in tips}
     # Show support values only at the base of each family clade
-    family_nodes = set()
-    for fam in COMPLEX:
-        members = [t for t in tips if family(t.name) == fam]
-        if len(members) > 1:
-            family_nodes.add(id(tree.common_ancestor(members)))
+    family_nodes = {id(c) for c in core_clades.values()}
     for c in tree.find_clades():
         if not c.is_terminal() and id(c) not in family_nodes:
             c.confidence = None

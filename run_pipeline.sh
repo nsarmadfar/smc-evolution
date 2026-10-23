@@ -27,12 +27,14 @@ mkdir -p "$DATA" "$OUT"
 echo "== 1. Get sequences ($MODE)"
 if [[ "$MODE" == test ]]; then
     python scripts/simulate_test_data.py "$SPECIES" "$DATA"
+elif [[ -s "$DATA/references.tsv" && -s "$DATA/outgroups.tsv" && -d "$DATA/proteomes" ]]; then
+    echo "Using sequences already in $DATA (delete that folder to download again)"
 else
     python scripts/01_fetch_uniprot.py "$SPECIES" "$DATA"
 fi
 
-echo "== 2. Classify candidates against human and yeast references"
-python scripts/02_classify.py "$DATA" "$OUT" "$MIN_LENGTH" "$THREADS"
+echo "== 2. Find SMC proteins by similarity search and label them"
+python scripts/02_classify.py "$DATA" "$SPECIES" "$OUT" "$MIN_LENGTH" "$THREADS"
 
 echo "== 3. Align (MAFFT) and trim (trimAl)"
 mafft --auto --thread "$THREADS" --quiet "$OUT/tree_input.faa" > "$OUT/smc.aln.faa"

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Count SMC1-6 and RAD50 copies per species and draw a presence/absence heatmap.
+"""Count SMC1-6 copies per species and draw a presence/absence heatmap.
 
 Usage: python scripts/04_presence_absence.py results/classification.tsv config/species.tsv results
 """
@@ -11,9 +11,9 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
 
-FAMILIES = ["SMC1", "SMC3", "SMC2", "SMC4", "SMC5", "SMC6", "RAD50"]
+FAMILIES = ["SMC1", "SMC3", "SMC2", "SMC4", "SMC5", "SMC6"]
 GROUP_LABELS = ["cohesin", "cohesin", "condensin", "condensin",
-                "SMC5/6", "SMC5/6", "MRN"]
+                "SMC5/6", "SMC5/6"]
 
 
 def main(classification, species_file, outdir):

@@ -9,11 +9,17 @@ RAD50 and unrelated proteins are added as decoys. To test the pipeline, one
 species loses SMC5 and SMC6, one species gains an extra SMC1 copy, and one
 SMC4 is a short fragment.
 
-The output has the same format as 01_fetch_uniprot.py, so the rest of the
-pipeline runs unchanged. A file with the true labels is written for checking.
+Each species also gets 200 unrelated proteins, and one species gets a
+"coiled-coil" decoy that shares only the middle of SMC1 (no ATPase head),
+which the search should ignore.
+
+The output has the same format as 01_fetch_uniprot.py (proteomes, references,
+outgroups), so the rest of the pipeline runs unchanged. A file with the true
+labels is written for checking.
 
 Usage: python scripts/simulate_test_data.py config/species.tsv data/test [seed]
 """
+import gzip
 import sys
 from pathlib import Path
 
@@ -87,7 +93,8 @@ def main(species_file, outdir, seed=1):
             families[fam] = evolve(c, 0.3)
     families["RAD50"] = evolve(random_seq(LENGTH), 0.1)   # unrelated decoy family
 
-    cand, truth, refs = [], [], []
+    proteomes = {c: [] for c in species.index[species["role"] == "ingroup"]}
+    outgroups, truth, refs = [], [], []
     n = 0
 
     def add(code, seq, fam, role="ingroup", gene=""):
@@ -95,10 +102,17 @@ def main(species_file, outdir, seed=1):
         n += 1
         acc = f"SIM{n:05d}"
         sp = species.loc[code]
-        cand.append({"Entry": acc, "Entry Name": f"{acc}_{code.upper()}",
-                     "Gene Names (primary)": gene, "Organism (ID)": sp.taxon_id,
-                     "Organism": sp.species, "Length": len(seq),
-                     "Sequence": to_str(seq), "code": code, "role": role})
+        if role == "ingroup":
+            header = (f"tr|{acc}|{acc}_{code.upper()} simulated protein "
+                      f"OS={sp.species} OX={sp.taxon_id}"
+                      + (f" GN={gene}" if gene else ""))
+            proteomes[code].append((header, to_str(seq)))
+        else:
+            outgroups.append({"Entry": acc, "Entry Name": f"{acc}_{code.upper()}",
+                              "Gene Names (primary)": gene,
+                              "Organism (ID)": sp.taxon_id, "Organism": sp.species,
+                              "Length": len(seq), "Sequence": to_str(seq),
+                              "code": code})
         truth.append({"Entry": acc, "code": code, "true_family": fam})
         return acc
 
@@ -121,17 +135,27 @@ def main(species_file, outdir, seed=1):
                              "Organism": species.loc[code].species,
                              "Length": len(seq), "Sequence": to_str(seq),
                              "family": fam})
-    # unrelated proteins that share nothing with SMCs
-    for code in ["Hsap", "Atha", "Tbru"]:
-        add(code, random_seq(900), "other")
+    # unrelated background proteins
+    for code in proteomes:
+        for _ in range(200):
+            add(code, random_seq(int(rng.integers(150, 1500))), "other")
+    # coiled-coil decoy: middle of SMC1 only, no ATPase head
+    middle = evolve(families["SMC1"], 0.3)[400:800]
+    add("Ddis", np.concatenate([random_seq(500), middle, random_seq(300)]), "other")
     # prokaryotic outgroups
     for code in species.index[species["role"] == "outgroup"]:
         add(code, evolve(prok, 0.3), "prokSMC", role="outgroup", gene="smc")
 
+    (outdir / "proteomes").mkdir(exist_ok=True)
+    for code, recs in proteomes.items():
+        with gzip.open(outdir / "proteomes" / f"{code}.faa.gz", "wt") as fh:
+            for header, seq in recs:
+                fh.write(f">{header}\n{seq}\n")
     pd.DataFrame(refs).to_csv(outdir / "references.tsv", sep="\t", index=False)
-    pd.DataFrame(cand).to_csv(outdir / "candidates.tsv", sep="\t", index=False)
+    pd.DataFrame(outgroups).to_csv(outdir / "outgroups.tsv", sep="\t", index=False)
     pd.DataFrame(truth).to_csv(outdir / "truth.tsv", sep="\t", index=False)
-    print(f"Simulated {len(cand)} candidates and {len(refs)} references in {outdir}")
+    print(f"Simulated {n} proteins in {len(proteomes)} proteomes, "
+          f"{len(refs)} references and {len(outgroups)} outgroups in {outdir}")
 
 
 if __name__ == "__main__":

@@ -23,10 +23,12 @@ Bacteria and archaea have a single SMC protein (or a distant relative such as Mu
 
 ```
 UniProt reference proteomes (14 eukaryotes, 6 supergroups)
-   │  proteins with the SMC_N domain (Pfam PF02463)
    ▼
-Classification: DIAMOND blastp against human and yeast SMC1-6 and RAD50
-   │  best-hit family, ambiguous and fragment (< 700 aa) calls removed
+Similarity search: DIAMOND blastp against human and yeast SMC1-6 and RAD50
+   │  hits must align to the N-terminal ATPase head
+   ▼
+Labelling: best-hit family; ambiguous, fragment (< 700 aa) and
+   │  redundant (>= 95% identical isoforms) sequences removed
    ▼
 Alignment (MAFFT) → trimming (trimAl -automated1)
    ▼
@@ -40,7 +42,7 @@ The species are listed in [`config/species.tsv`](config/species.tsv). They inclu
 
 ### Testing on simulated data first
 
-Before using real data, I test the pipeline on simulated sequences where the true answer is known (`scripts/simulate_test_data.py`). An ancestral sequence evolves along a known history: six families arise by duplication before the species split, then each evolves along the same species tree. I added a simulated gene loss (SMC5 and SMC6 in *Giardia*), a duplication (SMC1 in *Tetrahymena*), a fragment, and unrelated decoy proteins. The pipeline passes when it labels every protein correctly, recovers all six families as clades, and finds the loss and the duplication.
+Before using real data, I test the pipeline on simulated sequences where the true answer is known (`scripts/simulate_test_data.py`). An ancestral sequence evolves along a known history: six families arise by duplication before the species split, then each evolves along the same species tree. I added a simulated gene loss (SMC5 and SMC6 in *Giardia*), a duplication (SMC1 in *Tetrahymena*), a fragment, 200 unrelated background proteins per species, and a "coiled-coil" decoy that shares only the middle of an SMC protein. The pipeline passes when it finds and labels every SMC protein correctly, ignores the decoys, recovers all six families as clades, and finds the loss and the duplication.
 
 ## How to run
 
@@ -60,8 +62,8 @@ Use `THREADS=8 ./run_pipeline.sh` to use more CPU cores.
 | --- | --- |
 | `results/classification.tsv` | every candidate protein with its label and scores |
 | `results/smc_tree.png` | the rooted tree, coloured by family, support values at the base of each family |
-| `results/family_monophyly.tsv` | whether each family forms one clade, and its bootstrap support |
-| `results/copy_numbers.png` | copies of SMC1-6 and RAD50 in each species |
+| `results/family_monophyly.tsv` | per family: size of its main clade, bootstrap support, and sequences placed outside it |
+| `results/copy_numbers.png` | copies of SMC1-6 in each species |
 
 ## Results
 

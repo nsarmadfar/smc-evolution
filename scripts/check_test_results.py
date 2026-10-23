@@ -16,13 +16,17 @@ def main(datadir, resultdir):
     mono = pd.read_csv(Path(resultdir) / "family_monophyly.tsv", sep="\t")
     counts = pd.read_csv(Path(resultdir) / "copy_numbers.tsv", sep="\t", index_col=0)
 
-    m = truth.merge(calls, on=["Entry", "code"])
+    m = truth[~truth["true_family"].isin(["other", "prokSMC"])].merge(
+        calls, on=["Entry", "code"], how="left")
+    found_other = truth[truth["true_family"] == "other"].merge(
+        calls, on=["Entry", "code"])
     fragment = (m["code"] == "Pfal") & (m["true_family"] == "SMC4")
     expected = m["true_family"].where(~fragment, "fragment")
     wrong = m[expected != m["label"]]
 
     checks = {
-        "every candidate labelled correctly": wrong.empty,
+        "every SMC found and labelled correctly": wrong.empty,
+        "no unrelated or coiled-coil-only proteins picked up": found_other.empty,
         "fragment removed (Pfal SMC4)": (m.loc[fragment, "label"] == "fragment").all(),
         "all six SMC families monophyletic": bool(mono["monophyletic"].all())
                                               and len(mono) == 6,

@@ -1,0 +1,15 @@
+	SMC1	SMC3	SMC2	SMC4	SMC5	SMC6
+Homo sapiens (Opisthokonta)	2	1	1	1	1	1
+Saccharomyces cerevisiae (Opisthokonta)	1	1	1	1	1	1
+Monosiga brevicollis (Opisthokonta)	0	1	1	1	1	1
+Dictyostelium discoideum (Amoebozoa)	1	1	1	1	1	1
+Arabidopsis thaliana (Archaeplastida)	1	1	2	1	1	2
+Chlamydomonas reinhardtii (Archaeplastida)	2	1	1	1	2	2
+Phytophthora infestans (SAR (Stramenopiles))	1	1	1	1	1	1
+Thalassiosira pseudonana (SAR (Stramenopiles))	1	0	1	1	1	1
+Plasmodium falciparum (SAR (Alveolata))	1	1	1	1	1	1
+Tetrahymena thermophila (SAR (Alveolata))	1	1	1	1	0	0
+Trypanosoma brucei (Discoba)	1	1	1	1	0	0
+Naegleria gruberi (Discoba)	1	1	2	0	1	0
+Giardia intestinalis (Metamonada)	1	1	1	1	1	0
+Trichomonas vaginalis (Metamonada)	2	3	1	2	2	1
